@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PosLayout } from "@/components/pos-layout";
-import { useSales, useSaleReturns, recordSaleReturn, useHydrated } from "@/lib/pos-store";
-import { Undo2, X } from "lucide-react";
+import { useSales, useSaleReturns, recordSaleReturn, deleteSaleReturn, useHydrated } from "@/lib/pos-store";
+import { Trash2, Undo2, X } from "lucide-react";
 
 export const Route = createFileRoute("/sales-return")({
   head: () => ({
@@ -65,15 +65,32 @@ function SalesReturnPage() {
               <div className="divide-y divide-border max-h-[500px] overflow-auto">
                 {returns.map((r) => (
                   <div key={r.id} className="p-3 text-sm">
-                    <div className="flex justify-between">
-                      <div className="font-medium">{r.id} · {r.customer || "—"}</div>
-                      <div className="text-destructive">-Rs {r.total.toFixed(0)}</div>
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <div className="font-medium">{r.id} · {r.customer || "—"}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(r.date).toLocaleDateString()} · from {r.saleId} ·{" "}
+                          {r.items.map((i) => `${i.code}×${i.qty}`).join(", ")}
+                        </div>
+                        {r.reason && <div className="text-xs italic text-muted-foreground mt-1">"{r.reason}"</div>}
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <div className="text-destructive">-Rs {r.total.toFixed(0)}</div>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`Return ${r.id} delete kar dein?`)) return;
+                            try {
+                              await deleteSaleReturn(r.id);
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </button>
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(r.date).toLocaleDateString()} · from {r.saleId} ·{" "}
-                      {r.items.map((i) => `${i.code}×${i.qty}`).join(", ")}
-                    </div>
-                    {r.reason && <div className="text-xs italic text-muted-foreground mt-1">"{r.reason}"</div>}
                   </div>
                 ))}
               </div>

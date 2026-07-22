@@ -53,6 +53,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ amount }),
     }),
+  deleteSale: (id: string) =>
+    request<void>(`/sales/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   getPurchases: () => request<Purchase[]>("/purchases"),
   recordPurchase: (body: {
@@ -69,6 +71,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ amount }),
     }),
+  deletePurchase: (id: string) =>
+    request<void>(`/purchases/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   getExpenses: () => request<Expense[]>("/expenses"),
   addExpense: (body: { category: string; amount: number; note: string; date?: string }) =>
@@ -83,6 +87,8 @@ export const api = {
     reason: string;
   }) =>
     request<SaleReturn>("/sale-returns", { method: "POST", body: JSON.stringify(body) }),
+  deleteSaleReturn: (id: string) =>
+    request<void>(`/sale-returns/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   getPurchaseReturns: () => request<PurchaseReturn[]>("/purchase-returns"),
   recordPurchaseReturn: (body: { purchaseId: string; qty: number; reason: string }) =>
@@ -90,6 +96,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  deletePurchaseReturn: (id: string) =>
+    request<void>(`/purchase-returns/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   getLedgerCustomers: () => request<LedgerCustomer[]>("/ledger/customers"),
   addLedgerCustomer: (body: { name: string; phone?: string }) =>

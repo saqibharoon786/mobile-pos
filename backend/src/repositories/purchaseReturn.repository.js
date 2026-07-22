@@ -7,8 +7,18 @@ export const purchaseReturnRepository = {
     return docs.map(toPurchaseReturn);
   },
 
+  async findById(id) {
+    const doc = await PurchaseReturn.findOne({ id }).lean();
+    return toPurchaseReturn(doc);
+  },
+
   async create(record) {
     const created = await PurchaseReturn.create(record);
     return toPurchaseReturn(created.toObject());
+  },
+
+  async delete(id) {
+    const result = await PurchaseReturn.deleteOne({ id });
+    return result.deletedCount > 0;
   },
 };

@@ -5,9 +5,10 @@ import {
   usePurchases,
   useProducts,
   recordPurchase,
+  deletePurchase,
   useHydrated,
 } from "@/lib/pos-store";
-import { Plus, X, Truck } from "lucide-react";
+import { Plus, Trash2, Truck, X } from "lucide-react";
 
 export const Route = createFileRoute("/purchases")({
   head: () => ({
@@ -64,6 +65,7 @@ function PurchasesPage() {
                     <th className="px-4 py-2 font-medium">Paid</th>
                     <th className="px-4 py-2 font-medium">Remaining</th>
                     <th className="px-4 py-2 font-medium">Returned</th>
+                    <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -82,6 +84,21 @@ function PurchasesPage() {
                         Rs {p.remaining.toFixed(0)}
                       </td>
                       <td className="px-4 py-2 text-muted-foreground">{p.returnedQty || 0}</td>
+                      <td className="px-4 py-2 text-right">
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`${p.company} · ${p.code} ki purchase delete kar dein?`)) return;
+                            try {
+                              await deletePurchase(p.id);
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

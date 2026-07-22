@@ -53,6 +53,12 @@ export const purchaseService = {
   },
 
   async remove(id) {
+    const purchase = await purchaseRepository.findById(id);
+    if (!purchase) throw new AppError("Purchase not found", 404);
+
+    const netQty = purchase.qty - (purchase.returnedQty || 0);
+    if (netQty > 0) await productRepository.adjustStock(purchase.code, -netQty);
+
     const deleted = await purchaseRepository.delete(id);
     if (!deleted) throw new AppError("Purchase not found", 404);
   },

@@ -61,6 +61,15 @@ export const saleService = {
   },
 
   async remove(id) {
+    const sale = await saleRepository.findById(id);
+    if (!sale) throw new AppError("Sale not found", 404);
+
+    for (const item of sale.items) {
+      const returned = sale.returnedQty?.[item.code] || 0;
+      const netSold = item.qty - returned;
+      if (netSold > 0) await productRepository.increaseStock(item.code, netSold);
+    }
+
     const deleted = await saleRepository.delete(id);
     if (!deleted) throw new AppError("Sale not found", 404);
   },

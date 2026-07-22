@@ -8,4 +8,9 @@ export const purchaseReturnController = {
   async create(req, res) {
     res.status(201).json(await purchaseReturnService.create(req.body));
   },
+
+  async remove(req, res) {
+    await purchaseReturnService.remove(req.params.id);
+    res.status(204).send();
+  },
 };

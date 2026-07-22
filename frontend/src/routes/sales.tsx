@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { PosLayout } from "@/components/pos-layout";
-import { useSales, useHydrated } from "@/lib/pos-store";
-import { Receipt, Search } from "lucide-react";
+import { useSales, deleteSale, useHydrated } from "@/lib/pos-store";
+import { Receipt, Search, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/sales")({
   head: () => ({
@@ -94,6 +94,7 @@ function SalesPage() {
                     <th className="px-4 py-2 font-medium">Remaining</th>
                     <th className="px-4 py-2 font-medium">Profit</th>
                     <th className="px-4 py-2 font-medium">Status</th>
+                    <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -122,6 +123,21 @@ function SalesPage() {
                           <span className={"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " + status.cls}>
                             {status.label}
                           </span>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm(`Bill ${s.id} delete kar dein? Stock wapas ajayega.`)) return;
+                              try {
+                                await deleteSale(s.id);
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </button>
                         </td>
                       </tr>
                     );

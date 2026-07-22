@@ -145,10 +145,20 @@ export async function addSalePayment(saleId: string, amount: number) {
   return result;
 }
 
+export async function deleteSale(id: string) {
+  await api.deleteSale(id);
+  await invalidate(queryKeys.products, queryKeys.sales);
+}
+
 export async function addPurchasePayment(purchaseId: string, amount: number) {
   const result = await api.addPurchasePayment(purchaseId, amount);
   await invalidate(queryKeys.purchases);
   return result;
+}
+
+export async function deletePurchase(id: string) {
+  await api.deletePurchase(id);
+  await invalidate(queryKeys.products, queryKeys.purchases);
 }
 
 export async function addExpense(e: Omit<Expense, "id" | "date"> & { date?: string }) {
@@ -186,6 +196,11 @@ export async function recordSaleReturn(
   return result;
 }
 
+export async function deleteSaleReturn(id: string) {
+  await api.deleteSaleReturn(id);
+  await invalidate(queryKeys.products, queryKeys.sales, queryKeys.saleReturns);
+}
+
 export async function recordPurchaseReturn(
   purchaseId: string,
   qty: number,
@@ -194,6 +209,11 @@ export async function recordPurchaseReturn(
   const result = await api.recordPurchaseReturn({ purchaseId, qty, reason });
   await invalidate(queryKeys.products, queryKeys.purchases, queryKeys.purchaseReturns);
   return result;
+}
+
+export async function deletePurchaseReturn(id: string) {
+  await api.deletePurchaseReturn(id);
+  await invalidate(queryKeys.products, queryKeys.purchases, queryKeys.purchaseReturns);
 }
 
 export function useHydrated() {

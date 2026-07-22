@@ -60,4 +60,33 @@ export const saleReturnService = {
       reason: reason ?? "",
     });
   },
+
+  async remove(id) {
+    const record = await saleReturnRepository.findById(id);
+    if (!record) throw new AppError("Return not found", 404);
+
+    const sale = await saleRepository.findById(record.saleId);
+    if (!sale) throw new AppError("Linked sale not found", 404);
+
+    const returned = { ...(sale.returnedQty || {}) };
+    let returnTotal = 0;
+    let returnProfit = 0;
+
+    for (const item of record.items) {
+      returned[item.code] = Math.max(0, (returned[item.code] || 0) - item.qty);
+      if (returned[item.code] === 0) delete returned[item.code];
+      returnTotal += item.sellPrice * item.qty;
+      returnProfit += (item.sellPrice - item.purchasePrice) * item.qty;
+      await productRepository.adjustStock(item.code, -item.qty);
+    }
+
+    sale.returnedQty = returned;
+    sale.total += returnTotal;
+    sale.profit += returnProfit;
+    sale.remaining = Math.max(0, sale.total - sale.paid);
+    await saleRepository.update(sale);
+
+    const deleted = await saleReturnRepository.delete(id);
+    if (!deleted) throw new AppError("Return not found", 404);
+  },
 };

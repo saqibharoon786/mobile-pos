@@ -168,6 +168,7 @@ function PopPage() {
                       <td className="px-4 py-2 text-right">
                         <button
                           onClick={async () => {
+                            if (!window.confirm(`Product "${p.code}" delete kar dein?`)) return;
                             try {
                               await deleteProduct(p.code);
                             } catch {

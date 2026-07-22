@@ -105,6 +105,7 @@ function ExpensesPage() {
                       <td className="px-4 py-2 text-right">
                         <button
                           onClick={async () => {
+                            if (!window.confirm(`"${e.category}" expense delete kar dein?`)) return;
                             try {
                               await deleteExpense(e.id);
                             } catch {

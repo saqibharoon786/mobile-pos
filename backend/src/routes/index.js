@@ -6,11 +6,14 @@ import expenseRoutes from "./expense.routes.js";
 import saleReturnRoutes from "./saleReturn.routes.js";
 import purchaseReturnRoutes from "./purchaseReturn.routes.js";
 import ledgerRoutes from "./ledger.routes.js";
+import authRoutes from "./auth.routes.js";
 import { healthController } from "../controllers/health.controller.js";
 
 const router = Router();
 
 router.get("/health", healthController.check);
+
+router.use("/auth", authRoutes);
 
 router.use("/products", productRoutes);
 router.use("/sales", saleRoutes);

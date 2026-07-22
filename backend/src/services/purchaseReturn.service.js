@@ -39,4 +39,22 @@ export const purchaseReturnService = {
       reason: reason ?? "",
     });
   },
+
+  async remove(id) {
+    const record = await purchaseReturnRepository.findById(id);
+    if (!record) throw new AppError("Return not found", 404);
+
+    const pur = await purchaseRepository.findById(record.purchaseId);
+    if (!pur) throw new AppError("Linked purchase not found", 404);
+
+    await productRepository.increaseStock(pur.code, record.qty);
+
+    pur.returnedQty = Math.max(0, (pur.returnedQty || 0) - record.qty);
+    pur.total += record.total;
+    pur.remaining = Math.max(0, pur.total - pur.paid);
+    await purchaseRepository.update(pur);
+
+    const deleted = await purchaseReturnRepository.delete(id);
+    if (!deleted) throw new AppError("Return not found", 404);
+  },
 };

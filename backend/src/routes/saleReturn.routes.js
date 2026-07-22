@@ -6,5 +6,6 @@ const router = Router();
 
 router.get("/", asyncHandler(saleReturnController.list));
 router.post("/", asyncHandler(saleReturnController.create));
+router.delete("/:id", asyncHandler(saleReturnController.remove));
 
 export default router;

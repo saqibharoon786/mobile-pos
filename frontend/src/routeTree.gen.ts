@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CompaniesRouteImport } from './routes/companies'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as LedgerRouteImport } from './routes/ledger'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as PopRouteImport } from './routes/pop'
 import { Route as PopReturnRouteImport } from './routes/pop-return'
 import { Route as PosRouteImport } from './routes/pos'
@@ -38,6 +39,11 @@ const ExpensesRoute = ExpensesRouteImport.update({
 const LedgerRoute = LedgerRouteImport.update({
   id: '/ledger',
   path: '/ledger',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PopRoute = PopRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/companies': typeof CompaniesRoute
   '/expenses': typeof ExpensesRoute
   '/ledger': typeof LedgerRoute
+  '/login': typeof LoginRoute
   '/pop': typeof PopRoute
   '/pop-return': typeof PopReturnRoute
   '/pos': typeof PosRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/companies': typeof CompaniesRoute
   '/expenses': typeof ExpensesRoute
   '/ledger': typeof LedgerRoute
+  '/login': typeof LoginRoute
   '/pop': typeof PopRoute
   '/pop-return': typeof PopReturnRoute
   '/pos': typeof PosRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/companies': typeof CompaniesRoute
   '/expenses': typeof ExpensesRoute
   '/ledger': typeof LedgerRoute
+  '/login': typeof LoginRoute
   '/pop': typeof PopRoute
   '/pop-return': typeof PopReturnRoute
   '/pos': typeof PosRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/expenses'
     | '/ledger'
+    | '/login'
     | '/pop'
     | '/pop-return'
     | '/pos'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/expenses'
     | '/ledger'
+    | '/login'
     | '/pop'
     | '/pop-return'
     | '/pos'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/companies'
     | '/expenses'
     | '/ledger'
+    | '/login'
     | '/pop'
     | '/pop-return'
     | '/pos'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   CompaniesRoute: typeof CompaniesRoute
   ExpensesRoute: typeof ExpensesRoute
   LedgerRoute: typeof LedgerRoute
+  LoginRoute: typeof LoginRoute
   PopRoute: typeof PopRoute
   PopReturnRoute: typeof PopReturnRoute
   PosRoute: typeof PosRoute
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/ledger'
       fullPath: '/ledger'
       preLoaderRoute: typeof LedgerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pop': {
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   CompaniesRoute: CompaniesRoute,
   ExpensesRoute: ExpensesRoute,
   LedgerRoute: LedgerRoute,
+  LoginRoute: LoginRoute,
   PopRoute: PopRoute,
   PopReturnRoute: PopReturnRoute,
   PosRoute: PosRoute,

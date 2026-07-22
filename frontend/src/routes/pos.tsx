@@ -6,6 +6,7 @@ import {
   useSales,
   recordSale,
   addSalePayment,
+  deleteSale,
   useHydrated,
   type Sale,
 } from "@/lib/pos-store";
@@ -15,7 +16,7 @@ import { Plus, Minus, Trash2, Search, Printer, X, ShoppingCart, Wallet, Eye } fr
 export const Route = createFileRoute("/pos")({
   head: () => ({
     meta: [
-      { title: "POS — Sell — Gull House Battery" },
+      { title: "POS — Sell — Gul Battery House" },
       { name: "description", content: "Sell mobile batteries with customer billing." },
     ],
   }),
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/pos")({
 
 type CartLine = { code: string; qty: number };
 
-const SHOP_NAME = "Gull House Battery";
+const SHOP_NAME = "Gul Battery House";
 
 function PosPage() {
   const products = useProducts();
@@ -146,6 +147,19 @@ function PosPage() {
                               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                             >
                               <Printer className="h-3.5 w-3.5" /> Print
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`Bill ${s.id} delete kar dein? Stock wapas ajayega.`)) return;
+                                try {
+                                  await deleteSale(s.id);
+                                } catch {
+                                  /* ignore */
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Delete
                             </button>
                           </div>
                         </td>
