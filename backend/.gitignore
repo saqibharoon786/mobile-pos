@@ -1,0 +1,5 @@
+# Backend-specific ignores (root .gitignore bhi apply hoti hai)
+.env
+*.log
+node_modules/
+data/
