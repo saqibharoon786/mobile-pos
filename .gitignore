@@ -12,6 +12,7 @@ node_modules/
 # Example env files push hoti hain
 !.env.example
 !backend/.env.example
+!frontend/.env.example
 
 # ─── Logs ────────────────────────────────────────────────────────────────────
 logs/
