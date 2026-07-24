@@ -119,7 +119,6 @@ function PurchaseForm({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState("");
   const [qty, setQty] = useState("");
   const [purchase, setPurchase] = useState("");
-  const [sell, setSell] = useState("");
   const [paid, setPaid] = useState("");
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
@@ -130,7 +129,6 @@ function PurchaseForm({ onClose }: { onClose: () => void }) {
     if (p) {
       setCompany(p.company);
       setPurchase(String(p.purchasePrice));
-      setSell(String(p.sellPrice));
     }
   }
 
@@ -138,17 +136,16 @@ function PurchaseForm({ onClose }: { onClose: () => void }) {
     setErr("");
     if (!company.trim()) return setErr("Company likhain");
     if (!code.trim()) return setErr("Code likhain");
-    const q = Number(qty), pp = Number(purchase), sp = Number(sell), pd = Number(paid || "0");
+    const q = Number(qty), pp = Number(purchase), pd = Number(paid || "0");
     if (!Number.isFinite(q) || q <= 0) return setErr("Qty valid ho");
     if (!Number.isFinite(pp) || pp < 0) return setErr("Purchase price valid ho");
-    if (!Number.isFinite(sp) || sp < 0) return setErr("Sell price valid ho");
     try {
       await recordPurchase({
         company: company.trim(),
         code: code.trim(),
         qty: q,
         purchasePrice: pp,
-        sellPrice: sp,
+        sellPrice: 0,
         paid: pd,
         note: note.trim(),
       });
@@ -192,11 +189,6 @@ function PurchaseForm({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-xs text-muted-foreground">Purchase Rs</label>
             <input value={purchase} onChange={(e) => setPurchase(e.target.value)} inputMode="decimal" placeholder="500"
-              className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Selling Rs</label>
-            <input value={sell} onChange={(e) => setSell(e.target.value)} inputMode="decimal" placeholder="700"
               className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm" />
           </div>
           <div>

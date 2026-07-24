@@ -23,7 +23,7 @@ export const Route = createFileRoute("/pos")({
   component: PosPage,
 });
 
-type CartLine = { code: string; qty: number };
+type CartLine = { code: string; qty: number; sellPrice: number };
 
 const SHOP_NAME = "Gul Battery House";
 
@@ -444,10 +444,10 @@ function PosForm({
       return {
         code: p.code,
         qty: c.qty,
-        sellPrice: p.sellPrice,
+        sellPrice: c.sellPrice,
         purchasePrice: p.purchasePrice,
         stock: p.stock,
-        subtotal: p.sellPrice * c.qty,
+        subtotal: c.sellPrice * c.qty,
       };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
@@ -464,7 +464,7 @@ function PosForm({
         copy[idx] = { ...copy[idx], qty: copy[idx].qty + 1 };
         return copy;
       }
-      return [...c, { code, qty: 1 }];
+      return [...c, { code, qty: 1, sellPrice: 0 }];
     });
   }
   function dec(code: string) {
@@ -477,11 +477,19 @@ function PosForm({
   function remove(code: string) {
     setCart((c) => c.filter((x) => x.code !== code));
   }
+  function setSellPrice(code: string, sellPrice: number) {
+    setCart((c) =>
+      c.map((x) => (x.code === code ? { ...x, sellPrice: Number.isFinite(sellPrice) ? sellPrice : 0 } : x)),
+    );
+  }
 
   async function submit() {
     setErr("");
     if (!customer.trim()) return setErr("Customer name likhain");
     if (lines.length === 0) return setErr("Koi item add karain");
+    if (lines.some((l) => !l.sellPrice || l.sellPrice <= 0)) {
+      return setErr("Har item ki selling price likhain");
+    }
     try {
       const sale = await recordSale(
         lines.map((l) => ({
@@ -551,7 +559,7 @@ function PosForm({
                         {p.code} {p.company && <span className="text-muted-foreground font-normal">— {p.company}</span>}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Rs {p.sellPrice} · {p.stock} available
+                        Purchase Rs {p.purchasePrice} · {p.stock} available
                       </div>
                     </button>
                   ))
@@ -568,27 +576,43 @@ function PosForm({
               ) : (
                 <div className="divide-y divide-border">
                   {lines.map((l) => (
-                    <div key={l.code} className="p-2 flex items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium">{l.code}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Rs {l.sellPrice} × {l.qty} = Rs {l.subtotal}
+                    <div key={l.code} className="p-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">{l.code}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Purchase Rs {l.purchasePrice}
+                          </div>
                         </div>
+                        <button onClick={() => dec(l.code)} className="h-7 w-7 rounded-md border border-border inline-flex items-center justify-center">
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-6 text-center text-sm">{l.qty}</span>
+                        <button
+                          onClick={() => add(l.code)}
+                          disabled={l.qty >= l.stock}
+                          className="h-7 w-7 rounded-md border border-border inline-flex items-center justify-center disabled:opacity-40"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                        <button onClick={() => remove(l.code)} className="h-7 w-7 rounded-md text-destructive inline-flex items-center justify-center">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                      <button onClick={() => dec(l.code)} className="h-7 w-7 rounded-md border border-border inline-flex items-center justify-center">
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-6 text-center text-sm">{l.qty}</span>
-                      <button
-                        onClick={() => add(l.code)}
-                        disabled={l.qty >= l.stock}
-                        className="h-7 w-7 rounded-md border border-border inline-flex items-center justify-center disabled:opacity-40"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                      <button onClick={() => remove(l.code)} className="h-7 w-7 rounded-md text-destructive inline-flex items-center justify-center">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">Selling Rs</label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={l.sellPrice || ""}
+                          onChange={(e) => setSellPrice(l.code, Number(e.target.value))}
+                          placeholder="Likho…"
+                          className="flex-1 h-8 px-2 rounded-md border border-input bg-background text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          = Rs {l.subtotal.toFixed(0)}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>

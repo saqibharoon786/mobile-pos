@@ -26,7 +26,6 @@ function PopPage() {
   const [code, setCode] = useState("");
   const [company, setCompany] = useState("");
   const [purchase, setPurchase] = useState("");
-  const [sell, setSell] = useState("");
   const [stock, setStock] = useState("");
   const [err, setErr] = useState("");
 
@@ -36,23 +35,20 @@ function PopPage() {
     if (!code.trim()) return setErr("Code is required (e.g. bg-7)");
     if (!company.trim()) return setErr("Company name is required");
     const pp = Number(purchase);
-    const sp = Number(sell);
     const st = Number(stock || "0");
     if (!Number.isFinite(pp) || pp < 0) return setErr("Invalid purchase price");
-    if (!Number.isFinite(sp) || sp < 0) return setErr("Invalid selling price");
     if (!Number.isFinite(st) || st < 0) return setErr("Invalid stock");
     try {
       await saveProduct({
         code: code.trim(),
         company: company.trim(),
         purchasePrice: pp,
-        sellPrice: sp,
+        sellPrice: 0,
         stock: st,
       });
       setCode("");
       setCompany("");
       setPurchase("");
-      setSell("");
       setStock("");
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Error");
@@ -64,12 +60,12 @@ function PopPage() {
       <div className="max-w-6xl">
         <h1 className="text-2xl font-semibold">POP — Products</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Add battery products by code (e.g. <code className="px-1 rounded bg-muted">bg-7</code>), with purchase and selling price.
+          Add battery products by code (e.g. <code className="px-1 rounded bg-muted">bg-7</code>) with purchase price. Selling price POS pe sale ke time enter hogi.
         </p>
 
         <form
           onSubmit={submit}
-          className="mt-6 rounded-xl border border-border bg-card p-4 grid grid-cols-1 md:grid-cols-6 gap-3"
+          className="mt-6 rounded-xl border border-border bg-card p-4 grid grid-cols-1 md:grid-cols-5 gap-3"
         >
           <div className="md:col-span-1">
             <label className="text-xs text-muted-foreground">Code</label>
@@ -100,16 +96,6 @@ function PopPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Selling Rs</label>
-            <input
-              value={sell}
-              onChange={(e) => setSell(e.target.value)}
-              inputMode="decimal"
-              placeholder="700"
-              className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-            />
-          </div>
-          <div>
             <label className="text-xs text-muted-foreground">Stock</label>
             <input
               value={stock}
@@ -128,7 +114,7 @@ function PopPage() {
             </button>
           </div>
           {err && (
-            <div className="md:col-span-6 text-sm text-destructive">{err}</div>
+            <div className="md:col-span-5 text-sm text-destructive">{err}</div>
           )}
         </form>
 
@@ -148,8 +134,6 @@ function PopPage() {
                     <th className="px-4 py-2 font-medium">Code</th>
                     <th className="px-4 py-2 font-medium">Company</th>
                     <th className="px-4 py-2 font-medium">Purchase</th>
-                    <th className="px-4 py-2 font-medium">Selling</th>
-                    <th className="px-4 py-2 font-medium">Margin</th>
                     <th className="px-4 py-2 font-medium">Stock</th>
                     <th className="px-4 py-2"></th>
                   </tr>
@@ -160,10 +144,6 @@ function PopPage() {
                       <td className="px-4 py-2 font-medium">{p.code}</td>
                       <td className="px-4 py-2">{p.company || "—"}</td>
                       <td className="px-4 py-2">Rs {p.purchasePrice}</td>
-                      <td className="px-4 py-2">Rs {p.sellPrice}</td>
-                      <td className="px-4 py-2 text-emerald-600">
-                        Rs {p.sellPrice - p.purchasePrice}
-                      </td>
                       <td className="px-4 py-2">{p.stock}</td>
                       <td className="px-4 py-2 text-right">
                         <button
