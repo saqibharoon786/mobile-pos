@@ -51,6 +51,7 @@ function LedgerPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [openCustomer, setOpenCustomer] = useState<LedgerCustomer | null>(null);
   const [payCustomer, setPayCustomer] = useState<LedgerCustomer | null>(null);
+  const [billCustomer, setBillCustomer] = useState<LedgerCustomer | null>(null);
   const [query, setQuery] = useState("");
 
   const rows = useMemo(() => {
@@ -162,6 +163,13 @@ function LedgerPage() {
                       <td className="px-4 py-2 text-right">
                         <div className="inline-flex items-center gap-2">
                           <button
+                            onClick={() => setBillCustomer(r.c)}
+                            className="inline-flex items-center gap-1 h-7 px-2 rounded-md bg-amber-600 text-white text-xs hover:bg-amber-700"
+                            title="Naya bill / udhar add karain"
+                          >
+                            <Plus className="h-3.5 w-3.5" /> Bill
+                          </button>
+                          <button
                             onClick={() => setPayCustomer(r.c)}
                             className="inline-flex items-center gap-1 h-7 px-2 rounded-md bg-emerald-600 text-white text-xs hover:bg-emerald-700"
                           >
@@ -197,6 +205,18 @@ function LedgerPage() {
           onClose={() => setPayCustomer(null)}
           summary={(() => {
             const es = entries.filter((e) => e.customerId === payCustomer.id);
+            const bill = es.reduce((s, e) => (e.kind === "sale" ? s + e.total : s), 0);
+            const paid = es.reduce((s, e) => (e.kind === "payment" ? s + e.amount : s), 0);
+            return { bill, paid, remaining: Math.max(0, bill - paid) };
+          })()}
+        />
+      )}
+      {billCustomer && (
+        <AddLedgerDirectBillModal
+          customer={billCustomer}
+          onClose={() => setBillCustomer(null)}
+          summary={(() => {
+            const es = entries.filter((e) => e.customerId === billCustomer.id);
             const bill = es.reduce((s, e) => (e.kind === "sale" ? s + e.total : s), 0);
             const paid = es.reduce((s, e) => (e.kind === "payment" ? s + e.amount : s), 0);
             return { bill, paid, remaining: Math.max(0, bill - paid) };
@@ -356,7 +376,7 @@ function CustomerLedgerModal({
   onClose: () => void;
 }) {
   const entries = useLedgerEntries();
-  const [mode, setMode] = useState<null | "sale" | "payment">(null);
+  const [mode, setMode] = useState<null | "sale" | "direct" | "payment">(null);
 
   const list = useMemo(
     () =>
@@ -414,6 +434,12 @@ function CustomerLedgerModal({
             className="h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm inline-flex items-center gap-2"
           >
             <ShoppingCart className="h-4 w-4" /> Naya Bill (Saman diya)
+          </button>
+          <button
+            onClick={() => setMode("direct")}
+            className="h-9 px-3 rounded-md bg-amber-600 text-white text-sm inline-flex items-center gap-2 hover:bg-amber-700"
+          >
+            <Plus className="h-4 w-4" /> Bill Amount Add
           </button>
           <button
             onClick={() => setMode("payment")}
@@ -522,6 +548,13 @@ function CustomerLedgerModal({
 
       {mode === "sale" && (
         <AddLedgerSaleModal customer={customer} onClose={() => setMode(null)} />
+      )}
+      {mode === "direct" && (
+        <AddLedgerDirectBillModal
+          customer={customer}
+          onClose={() => setMode(null)}
+          summary={{ bill: totalBill, paid: totalPaid, remaining }}
+        />
       )}
       {mode === "payment" && (
         <AddLedgerPaymentModal
@@ -680,6 +713,123 @@ function AddLedgerSaleModal({
           onClick={submit}
           disabled={items.length === 0}
           className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
+        >
+          Save Bill
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function AddLedgerDirectBillModal({
+  customer,
+  onClose,
+  summary,
+}: {
+  customer: LedgerCustomer;
+  onClose: () => void;
+  summary?: { bill: number; paid: number; remaining: number };
+}) {
+  const [date, setDate] = useState(todayInput());
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState("");
+
+  const billAmt = Number(amount) || 0;
+  const newRemaining = summary ? summary.remaining + billAmt : billAmt;
+  const newBill = summary ? summary.bill + billAmt : billAmt;
+
+  async function submit() {
+    setErr("");
+    try {
+      await addLedgerDirectBill({
+        customerId: customer.id,
+        amount: Number(amount),
+        date: new Date(date).toISOString(),
+        note: note.trim() || undefined,
+      });
+      onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Error");
+    }
+  }
+
+  return (
+    <Modal title={`Bill add — ${customer.name}`} onClose={onClose}>
+      <div className="p-4 space-y-3 text-sm">
+        {summary && (
+          <div className="grid grid-cols-3 gap-2 rounded-md border border-border p-3 bg-muted/30 text-xs">
+            <div>
+              <div className="text-muted-foreground">Total Bill</div>
+              <div className="font-semibold">Rs {summary.bill.toFixed(0)}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Paid</div>
+              <div className="font-semibold text-emerald-600">Rs {summary.paid.toFixed(0)}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Remaining</div>
+              <div
+                className={
+                  "font-semibold " + (summary.remaining > 0 ? "text-destructive" : "text-emerald-600")
+                }
+              >
+                Rs {summary.remaining.toFixed(0)}
+              </div>
+            </div>
+          </div>
+        )}
+        <div>
+          <label className="text-xs text-muted-foreground">Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Bill amount (udhar)</label>
+          <input
+            autoFocus
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="e.g. 30000"
+            className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+          />
+        </div>
+        {billAmt > 0 && (
+          <div className="rounded-md border border-border p-3 bg-muted/20 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Naya total bill</span>
+              <span className="font-semibold">Rs {newBill.toFixed(0)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Is bill ke baad remaining</span>
+              <span className="font-semibold text-destructive">Rs {newRemaining.toFixed(0)}</span>
+            </div>
+          </div>
+        )}
+        <div>
+          <label className="text-xs text-muted-foreground">Note (optional)</label>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. 30k saman"
+            className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+          />
+        </div>
+        {err && <div className="text-sm text-destructive">{err}</div>}
+      </div>
+      <div className="p-4 border-t border-border flex items-center justify-end gap-2">
+        <button onClick={onClose} className="h-10 px-4 rounded-md border border-border text-sm">
+          Cancel
+        </button>
+        <button
+          onClick={submit}
+          disabled={billAmt <= 0}
+          className="h-10 px-4 rounded-md bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
         >
           Save Bill
         </button>
