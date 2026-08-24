@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PosLayout } from "@/components/pos-layout";
 import {
   useProducts,
@@ -8,7 +8,7 @@ import {
   useHydrated,
 } from "@/lib/pos-store";
 import type { Product } from "@/lib/pos-types";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/pop")({
   head: () => ({
@@ -30,6 +30,24 @@ function PopPage() {
   const [stock, setStock] = useState("");
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
+  const [search, setSearch] = useState("");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
+
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return products
+      .filter((p) => {
+        if (lowStockOnly && p.stock > 5) return false;
+        if (!q) return true;
+        return (
+          p.code.toLowerCase().includes(q) ||
+          (p.company || "").toLowerCase().includes(q) ||
+          String(p.purchasePrice).includes(q) ||
+          String(p.stock).includes(q)
+        );
+      })
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [products, search, lowStockOnly]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -121,17 +139,59 @@ function PopPage() {
         </form>
 
         <div className="mt-6 rounded-xl border border-border bg-card overflow-hidden">
-          <div className="p-4 border-b border-border font-medium">
-            All products {hydrated && `(${products.length})`}
+          <div className="p-4 border-b border-border space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-medium">
+                All products{" "}
+                {hydrated && (
+                  <span className="text-muted-foreground font-normal">
+                    ({filteredProducts.length}
+                    {search || lowStockOnly ? ` / ${products.length}` : ""})
+                  </span>
+                )}
+              </div>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={lowStockOnly}
+                  onChange={(e) => setLowStockOnly(e.target.checked)}
+                  className="rounded border-input"
+                />
+                Low stock (≤5)
+              </label>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Code, company, price ya stock se search…"
+                className="w-full h-9 pl-9 pr-9 rounded-md border border-input bg-background text-sm"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-md hover:bg-accent inline-flex items-center justify-center text-muted-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
           {!hydrated ? null : products.length === 0 ? (
             <div className="p-8 text-sm text-muted-foreground text-center">
               No products yet. Add your first battery above.
             </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="p-8 text-sm text-muted-foreground text-center">
+              Koi product match nahi hui. Search change karke try karain.
+            </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
+                <thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10">
                   <tr className="text-left">
                     <th className="px-4 py-2 font-medium">Code</th>
                     <th className="px-4 py-2 font-medium">Company</th>
@@ -141,12 +201,14 @@ function PopPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {products.map((p) => (
+                  {filteredProducts.map((p) => (
                     <tr key={p.code}>
                       <td className="px-4 py-2 font-medium">{p.code}</td>
                       <td className="px-4 py-2">{p.company || "—"}</td>
                       <td className="px-4 py-2">Rs {p.purchasePrice}</td>
-                      <td className="px-4 py-2">{p.stock}</td>
+                      <td className={`px-4 py-2 ${p.stock <= 5 ? "text-amber-600 font-medium" : ""}`}>
+                        {p.stock}
+                      </td>
                       <td className="px-4 py-2 text-right">
                         <div className="inline-flex items-center gap-3">
                           <button
