@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PosLayout } from "@/components/pos-layout";
 import { useSales, useSaleReturns, recordSaleReturn, deleteSaleReturn, useHydrated } from "@/lib/pos-store";
-import { Trash2, Undo2, X } from "lucide-react";
+import type { Sale } from "@/lib/pos-types";
+import { Search, Trash2, Undo2, X } from "lucide-react";
 
 export const Route = createFileRoute("/sales-return")({
   head: () => ({
@@ -14,12 +15,43 @@ export const Route = createFileRoute("/sales-return")({
   component: SalesReturnPage,
 });
 
+function hasReturnableItems(s: Sale) {
+  return s.items.some((i) => i.qty - (s.returnedQty?.[i.code] || 0) > 0);
+}
+
 function SalesReturnPage() {
   const sales = useSales();
   const returns = useSaleReturns();
   const hydrated = useHydrated();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const active = sales.find((s) => s.id === activeId);
+
+  const filteredSales = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return sales
+      .filter((s) => {
+        if (!showAll && !hasReturnableItems(s)) return false;
+        if (!q) return true;
+        const itemText = s.items.map((i) => i.code).join(" ");
+        return (
+          s.id.toLowerCase().includes(q) ||
+          (s.customer || "").toLowerCase().includes(q) ||
+          itemText.toLowerCase().includes(q) ||
+          new Date(s.date).toLocaleDateString().toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const ra = hasReturnableItems(a);
+        const rb = hasReturnableItems(b);
+        if (ra && !rb) return -1;
+        if (!ra && rb) return 1;
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+  }, [sales, search, showAll]);
+
+  const returnableCount = sales.filter(hasReturnableItems).length;
 
   return (
     <PosLayout>
@@ -31,26 +63,56 @@ function SalesReturnPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
           <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="p-4 border-b border-border font-medium">Recent sales</div>
-            {!hydrated ? null : sales.length === 0 ? (
-              <div className="p-8 text-sm text-muted-foreground text-center">No sales</div>
+            <div className="p-4 border-b border-border space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-medium">
+                  Sales {hydrated && `(${returnableCount} returnable)`}
+                </div>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={showAll}
+                    onChange={(e) => setShowAll(e.target.checked)}
+                    className="rounded border-input"
+                  />
+                  Sab dikhao
+                </label>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Customer, code, sale ID ya date se search…"
+                  className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm"
+                />
+              </div>
+            </div>
+            {!hydrated ? null : filteredSales.length === 0 ? (
+              <div className="p-8 text-sm text-muted-foreground text-center">
+                {sales.length === 0 ? "No sales" : "Koi sale match nahi hui"}
+              </div>
             ) : (
               <div className="divide-y divide-border max-h-[500px] overflow-auto">
-                {sales.slice(0, 30).map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setActiveId(s.id)}
-                    className="w-full text-left p-3 hover:bg-muted/30 text-sm flex justify-between items-center"
-                  >
-                    <div>
-                      <div className="font-medium">{s.id} · {s.customer || "—"}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(s.date).toLocaleDateString()} · {s.items.map((i) => `${i.code}×${i.qty}`).join(", ")}
+                {filteredSales.map((s) => {
+                  const canReturn = hasReturnableItems(s);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setActiveId(s.id)}
+                      disabled={!canReturn}
+                      className="w-full text-left p-3 hover:bg-muted/30 text-sm flex justify-between items-center disabled:opacity-40"
+                    >
+                      <div>
+                        <div className="font-medium">{s.id} · {s.customer || "—"}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(s.date).toLocaleDateString()} · {s.items.map((i) => `${i.code}×${i.qty}`).join(", ")}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-xs">Rs {s.total.toFixed(0)}</div>
-                  </button>
-                ))}
+                      <div className="text-xs shrink-0 ml-2">Rs {s.total.toFixed(0)}</div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -104,8 +166,15 @@ function SalesReturnPage() {
   );
 }
 
-function ReturnModal({ sale, onClose }: { sale: ReturnType<typeof useSales>[number]; onClose: () => void }) {
-  const [qtys, setQtys] = useState<Record<string, string>>({});
+function ReturnModal({ sale, onClose }: { sale: Sale; onClose: () => void }) {
+  const [qtys, setQtys] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const i of sale.items) {
+      const remain = i.qty - (sale.returnedQty?.[i.code] || 0);
+      if (remain > 0) initial[i.code] = String(remain);
+    }
+    return initial;
+  });
   const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
 
@@ -129,7 +198,9 @@ function ReturnModal({ sale, onClose }: { sale: ReturnType<typeof useSales>[numb
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div>
             <div className="font-semibold">Return from {sale.id}</div>
-            <div className="text-xs text-muted-foreground">{sale.customer || "—"}</div>
+            <div className="text-xs text-muted-foreground">
+              {sale.customer || "—"} · {new Date(sale.date).toLocaleDateString()}
+            </div>
           </div>
           <button onClick={onClose} className="h-8 w-8 rounded-md hover:bg-accent inline-flex items-center justify-center">
             <X className="h-4 w-4" />

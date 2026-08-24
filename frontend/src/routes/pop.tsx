@@ -7,7 +7,8 @@ import {
   deleteProduct,
   useHydrated,
 } from "@/lib/pos-store";
-import { Trash2, Plus } from "lucide-react";
+import type { Product } from "@/lib/pos-types";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/pop")({
   head: () => ({
@@ -28,6 +29,7 @@ function PopPage() {
   const [purchase, setPurchase] = useState("");
   const [stock, setStock] = useState("");
   const [err, setErr] = useState("");
+  const [editing, setEditing] = useState<Product | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -146,19 +148,27 @@ function PopPage() {
                       <td className="px-4 py-2">Rs {p.purchasePrice}</td>
                       <td className="px-4 py-2">{p.stock}</td>
                       <td className="px-4 py-2 text-right">
-                        <button
-                          onClick={async () => {
-                            if (!window.confirm(`Product "${p.code}" delete kar dein?`)) return;
-                            try {
-                              await deleteProduct(p.code);
-                            } catch {
-                              /* ignore */
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" /> Delete
-                        </button>
+                        <div className="inline-flex items-center gap-3">
+                          <button
+                            onClick={() => setEditing(p)}
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Edit
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm(`Product "${p.code}" delete kar dein?`)) return;
+                              try {
+                                await deleteProduct(p.code);
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -168,6 +178,134 @@ function PopPage() {
           )}
         </div>
       </div>
+
+      {editing && (
+        <EditProductModal
+          product={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </PosLayout>
+  );
+}
+
+function EditProductModal({
+  product,
+  onClose,
+}: {
+  product: Product;
+  onClose: () => void;
+}) {
+  const [code, setCode] = useState(product.code);
+  const [company, setCompany] = useState(product.company);
+  const [purchasePrice, setPurchasePrice] = useState(String(product.purchasePrice));
+  const [stock, setStock] = useState(String(product.stock));
+  const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    setErr("");
+    if (!code.trim()) return setErr("Code required");
+    if (!company.trim()) return setErr("Company required");
+    const pp = Number(purchasePrice);
+    const st = Number(stock);
+    if (!Number.isFinite(pp) || pp < 0) return setErr("Invalid purchase price");
+    if (!Number.isFinite(st) || st < 0) return setErr("Invalid stock");
+
+    setSaving(true);
+    try {
+      if (code.trim() !== product.code) {
+        await deleteProduct(product.code);
+      }
+      await saveProduct({
+        code: code.trim(),
+        company: company.trim(),
+        purchasePrice: pp,
+        sellPrice: product.sellPrice,
+        stock: st,
+      });
+      onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-card border border-border rounded-xl w-full max-w-md overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div>
+            <div className="font-semibold">Edit Product</div>
+            <div className="text-xs text-muted-foreground">{product.code}</div>
+          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-md hover:bg-accent inline-flex items-center justify-center"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground">Code</label>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Company</label>
+            <input
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground">Purchase Rs</label>
+              <input
+                value={purchasePrice}
+                onChange={(e) => setPurchasePrice(e.target.value)}
+                inputMode="decimal"
+                className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Stock</label>
+              <input
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                inputMode="numeric"
+                className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              />
+            </div>
+          </div>
+          {err && <div className="text-sm text-destructive">{err}</div>}
+        </div>
+        <div className="p-4 border-t border-border flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="h-10 px-4 rounded-md border border-border text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={saving}
+            className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

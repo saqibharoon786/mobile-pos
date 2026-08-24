@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PosLayout } from "@/components/pos-layout";
 import { usePurchases, usePurchaseReturns, recordPurchaseReturn, deletePurchaseReturn, useHydrated } from "@/lib/pos-store";
-import { RotateCcw, Trash2, X } from "lucide-react";
+import type { Purchase } from "@/lib/pos-types";
+import { RotateCcw, Search, Trash2, X } from "lucide-react";
 
 export const Route = createFileRoute("/pop-return")({
   head: () => ({
@@ -14,12 +15,43 @@ export const Route = createFileRoute("/pop-return")({
   component: PopReturnPage,
 });
 
+function returnableQty(p: Purchase) {
+  return p.qty - (p.returnedQty || 0);
+}
+
 function PopReturnPage() {
   const purchases = usePurchases();
   const returns = usePurchaseReturns();
   const hydrated = useHydrated();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const active = purchases.find((p) => p.id === activeId);
+
+  const filteredPurchases = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return purchases
+      .filter((p) => {
+        const remain = returnableQty(p);
+        if (!showAll && remain <= 0) return false;
+        if (!q) return true;
+        return (
+          p.company.toLowerCase().includes(q) ||
+          p.code.toLowerCase().includes(q) ||
+          p.id.toLowerCase().includes(q) ||
+          new Date(p.date).toLocaleDateString().toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const ra = returnableQty(a);
+        const rb = returnableQty(b);
+        if (ra > 0 && rb <= 0) return -1;
+        if (ra <= 0 && rb > 0) return 1;
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+  }, [purchases, search, showAll]);
+
+  const returnableCount = purchases.filter((p) => returnableQty(p) > 0).length;
 
   return (
     <PosLayout>
@@ -31,13 +63,39 @@ function PopReturnPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
           <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="p-4 border-b border-border font-medium">Recent purchases</div>
-            {!hydrated ? null : purchases.length === 0 ? (
-              <div className="p-8 text-sm text-muted-foreground text-center">No purchases</div>
+            <div className="p-4 border-b border-border space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-medium">
+                  Purchases {hydrated && `(${returnableCount} returnable)`}
+                </div>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={showAll}
+                    onChange={(e) => setShowAll(e.target.checked)}
+                    className="rounded border-input"
+                  />
+                  Sab dikhao
+                </label>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Company, code, ID ya date se search…"
+                  className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm"
+                />
+              </div>
+            </div>
+            {!hydrated ? null : filteredPurchases.length === 0 ? (
+              <div className="p-8 text-sm text-muted-foreground text-center">
+                {purchases.length === 0 ? "No purchases" : "Koi purchase match nahi hui"}
+              </div>
             ) : (
               <div className="divide-y divide-border max-h-[500px] overflow-auto">
-                {purchases.slice(0, 30).map((p) => {
-                  const remain = p.qty - (p.returnedQty || 0);
+                {filteredPurchases.map((p) => {
+                  const remain = returnableQty(p);
                   return (
                     <button
                       key={p.id}
@@ -48,10 +106,10 @@ function PopReturnPage() {
                       <div>
                         <div className="font-medium">{p.company} · {p.code}</div>
                         <div className="text-xs text-muted-foreground">
-                          {new Date(p.date).toLocaleDateString()} · Qty {p.qty} · Returnable {remain}
+                          {new Date(p.date).toLocaleDateString()} · {p.id} · Qty {p.qty} · Returnable {remain}
                         </div>
                       </div>
-                      <div className="text-xs">Rs {p.total.toFixed(0)}</div>
+                      <div className="text-xs shrink-0 ml-2">Rs {p.total.toFixed(0)}</div>
                     </button>
                   );
                 })}
@@ -107,9 +165,9 @@ function PopReturnPage() {
   );
 }
 
-function ReturnModal({ purchase, onClose }: { purchase: ReturnType<typeof usePurchases>[number]; onClose: () => void }) {
-  const remain = purchase.qty - (purchase.returnedQty || 0);
-  const [qty, setQty] = useState("");
+function ReturnModal({ purchase, onClose }: { purchase: Purchase; onClose: () => void }) {
+  const remain = returnableQty(purchase);
+  const [qty, setQty] = useState(String(remain));
   const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
 
@@ -132,7 +190,12 @@ function ReturnModal({ purchase, onClose }: { purchase: ReturnType<typeof usePur
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div>
             <div className="font-semibold">Return to {purchase.company}</div>
-            <div className="text-xs text-muted-foreground">{purchase.code} · Rs {purchase.purchasePrice} · {remain} available</div>
+            <div className="text-xs text-muted-foreground">
+              {purchase.code} · {purchase.id} · {new Date(purchase.date).toLocaleDateString()}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Rs {purchase.purchasePrice} each · {remain} available
+            </div>
           </div>
           <button onClick={onClose} className="h-8 w-8 rounded-md hover:bg-accent inline-flex items-center justify-center">
             <X className="h-4 w-4" />
