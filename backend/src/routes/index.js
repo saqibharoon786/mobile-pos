@@ -8,6 +8,7 @@ import purchaseReturnRoutes from "./purchaseReturn.routes.js";
 import ledgerRoutes from "./ledger.routes.js";
 import authRoutes from "./auth.routes.js";
 import { healthController } from "../controllers/health.controller.js";
+import repairCustomerRoutes from "./repairCustomer.routes.js";
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use("/expenses", expenseRoutes);
 router.use("/sale-returns", saleReturnRoutes);
 router.use("/purchase-returns", purchaseReturnRoutes);
 router.use("/ledger", ledgerRoutes);
+router.use("/repair-customers", repairCustomerRoutes);
 
 export default router;

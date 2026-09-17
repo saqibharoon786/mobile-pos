@@ -103,3 +103,13 @@ export type LedgerEntry =
       amount: number;
       note?: string;
     };
+
+export type RepairCustomer = {
+  id: string;
+  date: string;
+  customerName: string;
+  itemName: string;
+  actualPrice: number;
+  soldPrice: number;
+  note: string;
+};

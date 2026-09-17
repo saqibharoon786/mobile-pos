@@ -11,6 +11,7 @@ import {
   Undo2,
   RotateCcw,
   BookUser,
+  Wrench,
   LogOut,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -25,6 +26,7 @@ const nav = [
   { to: "/companies", label: "Companies", icon: Building2 },
   { to: "/sales", label: "Sales History", icon: Receipt },
   { to: "/ledger", label: "Ledger (Khata)", icon: BookUser },
+  { to: "/repair-customers", label: "Repair Customer", icon: Wrench },
   { to: "/expenses", label: "Expenses", icon: Wallet },
   { to: "/sales-return", label: "Sales Return", icon: Undo2 },
   { to: "/pop-return", label: "POP Return", icon: RotateCcw },

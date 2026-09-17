@@ -9,6 +9,7 @@ import type {
   Sale,
   SaleItem,
   SaleReturn,
+  RepairCustomer,
 } from "./pos-types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -141,6 +142,20 @@ export const api = {
     }),
   deleteLedgerEntry: (id: string) =>
     request<void>(`/ledger/entries/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  getRepairCustomers: () => request<RepairCustomer[]>("/repair-customers"),
+  addRepairCustomer: (body: Omit<RepairCustomer, "id">) =>
+    request<RepairCustomer>("/repair-customers", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateRepairCustomer: (id: string, body: Partial<Omit<RepairCustomer, "id">>) =>
+    request<RepairCustomer>(`/repair-customers/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteRepairCustomer: (id: string) =>
+    request<void>(`/repair-customers/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   health: () => request<{ status: string }>("/health"),
 };

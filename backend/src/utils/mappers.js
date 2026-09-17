@@ -120,3 +120,16 @@ export function toLedgerEntry(doc) {
     note: doc.note || undefined,
   };
 }
+
+export function toRepairCustomer(doc) {
+  if (!doc) return null;
+  return {
+    id: doc.id,
+    date: doc.date,
+    customerName: doc.customerName,
+    itemName: doc.itemName,
+    actualPrice: doc.actualPrice,
+    soldPrice: doc.soldPrice,
+    note: doc.note || "",
+  };
+}

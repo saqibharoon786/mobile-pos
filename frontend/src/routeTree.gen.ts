@@ -18,6 +18,7 @@ import { Route as PopRouteImport } from './routes/pop'
 import { Route as PopReturnRouteImport } from './routes/pop-return'
 import { Route as PosRouteImport } from './routes/pos'
 import { Route as PurchasesRouteImport } from './routes/purchases'
+import { Route as RepairCustomersRouteImport } from './routes/repair-customers'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as SalesReturnRouteImport } from './routes/sales-return'
 
@@ -66,6 +67,11 @@ const PurchasesRoute = PurchasesRouteImport.update({
   path: '/purchases',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RepairCustomersRoute = RepairCustomersRouteImport.update({
+  id: '/repair-customers',
+  path: '/repair-customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SalesRoute = SalesRouteImport.update({
   id: '/sales',
   path: '/sales',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/pop-return': typeof PopReturnRoute
   '/pos': typeof PosRoute
   '/purchases': typeof PurchasesRoute
+  '/repair-customers': typeof RepairCustomersRoute
   '/sales': typeof SalesRoute
   '/sales-return': typeof SalesReturnRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/pop-return': typeof PopReturnRoute
   '/pos': typeof PosRoute
   '/purchases': typeof PurchasesRoute
+  '/repair-customers': typeof RepairCustomersRoute
   '/sales': typeof SalesRoute
   '/sales-return': typeof SalesReturnRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/pop-return': typeof PopReturnRoute
   '/pos': typeof PosRoute
   '/purchases': typeof PurchasesRoute
+  '/repair-customers': typeof RepairCustomersRoute
   '/sales': typeof SalesRoute
   '/sales-return': typeof SalesReturnRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/pop-return'
     | '/pos'
     | '/purchases'
+    | '/repair-customers'
     | '/sales'
     | '/sales-return'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/pop-return'
     | '/pos'
     | '/purchases'
+    | '/repair-customers'
     | '/sales'
     | '/sales-return'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/pop-return'
     | '/pos'
     | '/purchases'
+    | '/repair-customers'
     | '/sales'
     | '/sales-return'
   fileRoutesById: FileRoutesById
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   PopReturnRoute: typeof PopReturnRoute
   PosRoute: typeof PosRoute
   PurchasesRoute: typeof PurchasesRoute
+  RepairCustomersRoute: typeof RepairCustomersRoute
   SalesRoute: typeof SalesRoute
   SalesReturnRoute: typeof SalesReturnRoute
 }
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PurchasesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/repair-customers': {
+      id: '/repair-customers'
+      path: '/repair-customers'
+      fullPath: '/repair-customers'
+      preLoaderRoute: typeof RepairCustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sales': {
       id: '/sales'
       path: '/sales'
@@ -265,6 +285,7 @@ const rootRouteChildren: RootRouteChildren = {
   PopReturnRoute: PopReturnRoute,
   PosRoute: PosRoute,
   PurchasesRoute: PurchasesRoute,
+  RepairCustomersRoute: RepairCustomersRoute,
   SalesRoute: SalesRoute,
   SalesReturnRoute: SalesReturnRoute,
 }

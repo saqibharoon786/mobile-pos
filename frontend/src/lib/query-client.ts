@@ -18,6 +18,7 @@ export const queryKeys = {
   purchaseReturns: ["purchaseReturns"] as const,
   ledgerCustomers: ["ledgerCustomers"] as const,
   ledgerEntries: ["ledgerEntries"] as const,
+  repairCustomers: ["repairCustomers"] as const,
 };
 
 export async function invalidate(...keys: (readonly string[])[]) {

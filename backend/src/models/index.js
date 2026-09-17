@@ -6,3 +6,4 @@ export { SaleReturn } from "./SaleReturn.model.js";
 export { PurchaseReturn } from "./PurchaseReturn.model.js";
 export { LedgerCustomer } from "./LedgerCustomer.model.js";
 export { LedgerEntry } from "./LedgerEntry.model.js";
+export { RepairCustomer } from "./RepairCustomer.model.js";

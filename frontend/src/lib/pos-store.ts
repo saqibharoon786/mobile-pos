@@ -15,6 +15,7 @@ export type {
   LedgerCustomer,
   LedgerSaleItem,
   LedgerEntry,
+  RepairCustomer,
 } from "./pos-types";
 
 import type {
@@ -23,6 +24,7 @@ import type {
   LedgerEntry,
   LedgerSaleItem,
   Product,
+  RepairCustomer,
   Sale,
   SaleItem,
 } from "./pos-types";
@@ -66,6 +68,30 @@ export function useLedgerCustomers() {
 
 export function useLedgerEntries() {
   return useListQuery(queryKeys.ledgerEntries, api.getLedgerEntries);
+}
+
+export function useRepairCustomers() {
+  return useListQuery(queryKeys.repairCustomers, api.getRepairCustomers);
+}
+
+export async function addRepairCustomer(input: Omit<RepairCustomer, "id">) {
+  const result = await api.addRepairCustomer(input);
+  await invalidate(queryKeys.repairCustomers);
+  return result;
+}
+
+export async function updateRepairCustomer(
+  id: string,
+  input: Partial<Omit<RepairCustomer, "id">>,
+) {
+  const result = await api.updateRepairCustomer(id, input);
+  await invalidate(queryKeys.repairCustomers);
+  return result;
+}
+
+export async function deleteRepairCustomer(id: string) {
+  await api.deleteRepairCustomer(id);
+  await invalidate(queryKeys.repairCustomers);
 }
 
 export async function addLedgerCustomer(input: string | { name: string; phone?: string }) {
