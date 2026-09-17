@@ -1,14 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, type FormEvent } from "react";
-import { Pencil, Plus, RefreshCw, Search, Trash2, User, Wrench, X } from "lucide-react";
+import {
+  Eye,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Wrench,
+  X,
+} from "lucide-react";
 import { PosLayout } from "@/components/pos-layout";
 import {
-  addRepairCustomer,
+  addRepairVisit,
   deleteRepairCustomer,
-  updateRepairCustomer,
+  deleteRepairVisit,
+  updateRepairVisit,
   useHydrated,
+  useProducts,
   useRepairCustomers,
   type RepairCustomer,
+  type RepairVisit,
 } from "@/lib/pos-store";
 
 export const Route = createFileRoute("/repair-customers")({
@@ -23,17 +35,13 @@ export const Route = createFileRoute("/repair-customers")({
 
 type FormMode =
   | { type: "new" }
-  | { type: "repeat"; customerName: string }
-  | { type: "edit"; record: RepairCustomer };
+  | { type: "repeat"; customer: RepairCustomer }
+  | { type: "edit"; customer: RepairCustomer; visit: RepairVisit };
 
 function todayInput() {
   const date = new Date();
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function normalizeName(name: string) {
-  return name.trim().toLowerCase();
 }
 
 function formatDate(date: string) {
@@ -44,84 +52,46 @@ function formatDate(date: string) {
   });
 }
 
-function getVisitNumbers(records: RepairCustomer[]) {
-  const byCustomer = new Map<string, RepairCustomer[]>();
-  for (const record of records) {
-    const key = normalizeName(record.customerName);
-    const list = byCustomer.get(key) ?? [];
-    list.push(record);
-    byCustomer.set(key, list);
-  }
-
-  const visitMap = new Map<string, number>();
-  for (const list of byCustomer.values()) {
-    list
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .forEach((record, index) => visitMap.set(record.id, index + 1));
-  }
-  return visitMap;
+function latestVisit(customer: RepairCustomer): RepairVisit | undefined {
+  return customer.visits[0];
 }
 
-function matchesSearch(record: RepairCustomer, query: string) {
+function totalSpent(customer: RepairCustomer) {
+  return customer.visits.reduce((sum, visit) => sum + visit.soldPrice, 0);
+}
+
+function matchesSearch(customer: RepairCustomer, query: string) {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return [
-    record.customerName,
-    record.itemName,
-    record.note,
-    record.id,
-    String(record.actualPrice),
-    String(record.soldPrice),
-    formatDate(record.date),
-    new Date(record.date).toLocaleDateString(),
-  ].some((value) => value.toLowerCase().includes(q));
+  const fields = [
+    customer.customerName,
+    customer.id,
+    formatDate(customer.date),
+    ...customer.visits.flatMap((visit) => [
+      visit.itemName,
+      visit.productCode,
+      visit.note,
+      String(visit.soldPrice),
+      String(visit.qty),
+      formatDate(visit.date),
+    ]),
+  ];
+  return fields.some((value) => value.toLowerCase().includes(q));
 }
 
 function RepairCustomersPage() {
-  const records = useRepairCustomers();
+  const customers = useRepairCustomers();
   const hydrated = useHydrated();
   const [query, setQuery] = useState("");
   const [formMode, setFormMode] = useState<FormMode | null>(null);
-
-  const visitNumbers = useMemo(() => getVisitNumbers(records), [records]);
+  const [historyCustomer, setHistoryCustomer] = useState<RepairCustomer | null>(null);
 
   const filtered = useMemo(
-    () => records.filter((record) => matchesSearch(record, query)),
-    [records, query],
+    () => customers.filter((customer) => matchesSearch(customer, query)),
+    [customers, query],
   );
 
-  const customerSummary = useMemo(() => {
-    const map = new Map<
-      string,
-      { name: string; visits: number; lastDate: string; lastBattery: string }
-    >();
-
-    for (const record of records) {
-      const key = normalizeName(record.customerName);
-      const existing = map.get(key);
-      if (existing) {
-        existing.visits += 1;
-        if (new Date(record.date).getTime() > new Date(existing.lastDate).getTime()) {
-          existing.lastDate = record.date;
-          existing.lastBattery = record.itemName;
-        }
-      } else {
-        map.set(key, {
-          name: record.customerName.trim(),
-          visits: 1,
-          lastDate: record.date,
-          lastBattery: record.itemName,
-        });
-      }
-    }
-
-    return Array.from(map.values())
-      .filter((customer) => !query.trim() || customer.name.toLowerCase().includes(query.trim().toLowerCase()))
-      .sort((a, b) => new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime());
-  }, [records, query]);
-
-  const totalCustomers = customerSummary.length;
-  const repeatCustomers = customerSummary.filter((c) => c.visits > 1).length;
+  const totalVisits = customers.reduce((sum, customer) => sum + customer.visits.length, 0);
 
   return (
     <PosLayout>
@@ -130,61 +100,26 @@ function RepairCustomersPage() {
           <div>
             <h1 className="text-2xl font-semibold">Repair Customer</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Customer battery le kar gaya — naam, original battery, asli keemat aur kitne mein li sab record hoga.
+              Customer battery le kar gaya — POP se stock minus hoga. Ek customer ka ek hi record, saari visits history mein.
             </p>
           </div>
           <button
             onClick={() => setFormMode({ type: "new" })}
             className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium inline-flex items-center gap-2 hover:bg-primary/90"
           >
-            <Plus className="h-4 w-4" /> Naya Record
+            <Plus className="h-4 w-4" /> Naya Customer
           </button>
         </div>
-
-        {hydrated && customerSummary.length > 0 && (
-          <div className="mt-6 rounded-xl border border-border bg-card overflow-hidden">
-            <div className="p-4 border-b border-border flex items-center gap-2 flex-wrap">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">Customers</span>
-              <span className="text-xs text-muted-foreground">
-                {totalCustomers} total · {repeatCustomers} dobara aaye
-              </span>
-            </div>
-            <div className="p-3 flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-              {customerSummary.map((customer) => (
-                <div
-                  key={customer.name}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium truncate max-w-[140px]">{customer.name}</div>
-                    <div className="text-[11px] text-muted-foreground truncate max-w-[160px]">
-                      {customer.visits} visit · {customer.lastBattery}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFormMode({ type: "repeat", customerName: customer.name })}
-                    title={`${customer.name} dobara battery li`}
-                    className="shrink-0 h-7 px-2 rounded-md bg-primary/10 text-primary text-xs font-medium inline-flex items-center gap-1 hover:bg-primary/20"
-                  >
-                    <RefreshCw className="h-3 w-3" /> Dobara
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="mt-6 rounded-xl border border-border bg-card overflow-hidden">
           <div className="p-4 border-b border-border space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
               <Wrench className="h-4 w-4" />
-              <span className="font-medium">Saari visits</span>
+              <span className="font-medium">Customers</span>
               {hydrated && (
                 <span className="text-xs text-muted-foreground">
                   ({filtered.length}
-                  {query ? ` / ${records.length}` : ""} records)
+                  {query ? ` / ${customers.length}` : ""} customers · {totalVisits} visits)
                 </span>
               )}
             </div>
@@ -193,7 +128,7 @@ function RepairCustomersPage() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Naam, battery, price, date ya note se search…"
+                placeholder="Naam, battery, product code, price ya date se search…"
                 className="w-full h-9 pl-9 pr-9 rounded-md border border-input bg-background text-sm"
               />
               {query && (
@@ -211,8 +146,8 @@ function RepairCustomersPage() {
 
           {!hydrated ? null : filtered.length === 0 ? (
             <div className="p-8 text-sm text-muted-foreground text-center">
-              {records.length === 0
-                ? "Abhi koi record nahi. Naya Record dabain."
+              {customers.length === 0
+                ? "Abhi koi record nahi. Naya Customer dabain."
                 : "Koi match nahi mila. Search change karke try karain."}
             </div>
           ) : (
@@ -220,64 +155,63 @@ function RepairCustomersPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-muted-foreground text-left sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-2 font-medium">Date</th>
                     <th className="px-4 py-2 font-medium">Customer</th>
-                    <th className="px-4 py-2 font-medium">Original Battery</th>
-                    <th className="px-4 py-2 font-medium">Asli Keemat</th>
+                    <th className="px-4 py-2 font-medium">Visits</th>
+                    <th className="px-4 py-2 font-medium">Last Date</th>
+                    <th className="px-4 py-2 font-medium">Latest Battery</th>
+                    <th className="px-4 py-2 font-medium">Product</th>
                     <th className="px-4 py-2 font-medium">Kitne Mein Li</th>
-                    <th className="px-4 py-2 font-medium">Note</th>
+                    <th className="px-4 py-2 font-medium">Total</th>
                     <th className="px-4 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filtered.map((record) => {
-                    const visitNo = visitNumbers.get(record.id) ?? 1;
+                  {filtered.map((customer) => {
+                    const latest = latestVisit(customer);
                     return (
-                      <tr key={record.id} className="hover:bg-muted/20">
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div>{formatDate(record.date)}</div>
-                          <div className="text-[11px] text-muted-foreground">{record.id}</div>
-                        </td>
+                      <tr key={customer.id} className="hover:bg-muted/20">
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <div>
-                              <div className="font-medium">{record.customerName}</div>
-                              <div className="text-[11px] text-muted-foreground">Visit #{visitNo}</div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setFormMode({ type: "repeat", customerName: record.customerName })
-                              }
-                              title={`${record.customerName} dobara battery li`}
-                              className="shrink-0 h-6 px-2 rounded-md bg-primary/10 text-primary text-[11px] font-medium inline-flex items-center gap-1 hover:bg-primary/20"
-                            >
-                              <RefreshCw className="h-3 w-3" /> Dobara
-                            </button>
-                          </div>
+                          <div className="font-medium">{customer.customerName}</div>
+                          <div className="text-[11px] text-muted-foreground">{customer.id}</div>
                         </td>
-                        <td className="px-4 py-3">{record.itemName}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">Rs {record.actualPrice.toFixed(0)}</td>
+                        <td className="px-4 py-3">{customer.visits.length}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {latest ? formatDate(latest.date) : "—"}
+                        </td>
+                        <td className="px-4 py-3">{latest?.itemName || "—"}</td>
+                        <td className="px-4 py-3">{latest?.productCode || "—"}</td>
                         <td className="px-4 py-3 whitespace-nowrap font-medium">
-                          Rs {record.soldPrice.toFixed(0)}
+                          {latest ? `Rs ${latest.soldPrice.toFixed(0)}` : "—"}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground max-w-[180px] truncate">
-                          {record.note || "—"}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          Rs {totalSpent(customer).toFixed(0)}
                         </td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-3">
+                          <div className="inline-flex items-center gap-2 flex-wrap justify-end">
                             <button
                               type="button"
-                              onClick={() => setFormMode({ type: "edit", record })}
+                              onClick={() => setHistoryCustomer(customer)}
+                              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> History
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormMode({ type: "repeat", customer })}
                               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                             >
-                              <Pencil className="h-3.5 w-3.5" /> Edit
+                              <RefreshCw className="h-3.5 w-3.5" /> Dobara
                             </button>
                             <button
                               type="button"
                               onClick={async () => {
-                                if (!window.confirm("Ye record delete kar dein?")) return;
-                                await deleteRepairCustomer(record.id);
+                                if (
+                                  !window.confirm(
+                                    `${customer.customerName} ka poora record delete kar dein?`,
+                                  )
+                                )
+                                  return;
+                                await deleteRepairCustomer(customer.id);
                               }}
                               className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
                             >
@@ -295,61 +229,188 @@ function RepairCustomersPage() {
         </div>
       </div>
 
-      {formMode && (
-        <RepairForm mode={formMode} onClose={() => setFormMode(null)} />
+      {formMode && <RepairForm mode={formMode} onClose={() => setFormMode(null)} />}
+      {historyCustomer && (
+        <HistoryModal
+          customer={historyCustomer}
+          onClose={() => setHistoryCustomer(null)}
+          onEdit={(visit) => {
+            setHistoryCustomer(null);
+            setFormMode({ type: "edit", customer: historyCustomer, visit });
+          }}
+          onDeleteVisit={deleteRepairVisit}
+        />
       )}
     </PosLayout>
   );
 }
 
+function HistoryModal({
+  customer,
+  onClose,
+  onEdit,
+  onDeleteVisit,
+}: {
+  customer: RepairCustomer;
+  onClose: () => void;
+  onEdit: (visit: RepairVisit) => void;
+  onDeleteVisit: (customerId: string, visitId: string) => Promise<void>;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <div>
+            <h2 className="text-lg font-semibold">{customer.customerName} — History</h2>
+            <p className="text-sm text-muted-foreground">
+              {customer.visits.length} visits · Total Rs {totalSpent(customer).toFixed(0)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-md hover:bg-accent inline-flex items-center justify-center"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-muted-foreground text-left sticky top-0">
+              <tr>
+                <th className="px-4 py-2 font-medium">#</th>
+                <th className="px-4 py-2 font-medium">Date</th>
+                <th className="px-4 py-2 font-medium">Battery</th>
+                <th className="px-4 py-2 font-medium">Product</th>
+                <th className="px-4 py-2 font-medium">Qty</th>
+                <th className="px-4 py-2 font-medium">Kitne Mein Li</th>
+                <th className="px-4 py-2 font-medium">Note</th>
+                <th className="px-4 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {[...customer.visits]
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((visit) => {
+                  const visitNo =
+                    [...customer.visits]
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .findIndex((v) => v.id === visit.id) + 1;
+                  return (
+                  <tr key={visit.id}>
+                    <td className="px-4 py-2 text-muted-foreground">#{visitNo}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{formatDate(visit.date)}</td>
+                    <td className="px-4 py-2">{visit.itemName}</td>
+                    <td className="px-4 py-2">{visit.productCode || "—"}</td>
+                    <td className="px-4 py-2">{visit.qty}</td>
+                    <td className="px-4 py-2 font-medium">Rs {visit.soldPrice.toFixed(0)}</td>
+                    <td className="px-4 py-2 text-muted-foreground max-w-[140px] truncate">
+                      {visit.note || "—"}
+                    </td>
+                    <td className="px-4 py-2 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onEdit(visit)}
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!window.confirm("Ye visit delete kar dein?")) return;
+                            await onDeleteVisit(customer.id, visit.id);
+                            onClose();
+                          }}
+                          className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RepairForm({ mode, onClose }: { mode: FormMode; onClose: () => void }) {
+  const products = useProducts();
   const isEdit = mode.type === "edit";
-  const record = isEdit ? mode.record : null;
+  const isRepeat = mode.type === "repeat";
+  const customer = isEdit || isRepeat ? mode.customer : null;
+  const visit = isEdit ? mode.visit : null;
 
   const [customerName, setCustomerName] = useState(
-    isEdit ? record!.customerName : mode.type === "repeat" ? mode.customerName : "",
+    isEdit || isRepeat ? customer!.customerName : "",
   );
-  const [itemName, setItemName] = useState(isEdit ? record!.itemName : "");
-  const [actualPrice, setActualPrice] = useState(isEdit ? String(record!.actualPrice) : "");
-  const [soldPrice, setSoldPrice] = useState(isEdit ? String(record!.soldPrice) : "");
+  const [itemName, setItemName] = useState(isEdit ? visit!.itemName : "");
+  const [productCode, setProductCode] = useState(isEdit ? visit!.productCode : "");
+  const [qty, setQty] = useState(isEdit ? String(visit!.qty) : "1");
+  const [soldPrice, setSoldPrice] = useState(isEdit ? String(visit!.soldPrice) : "");
   const [date, setDate] = useState(
-    isEdit ? record!.date.slice(0, 10) : todayInput(),
+    isEdit ? visit!.date.slice(0, 10) : todayInput(),
   );
-  const [note, setNote] = useState(isEdit ? record!.note : "");
+  const [note, setNote] = useState(isEdit ? visit!.note : "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const selectedProduct = products.find(
+    (product) => product.code.toLowerCase() === productCode.toLowerCase(),
+  );
+
+  function onProductChange(code: string) {
+    setProductCode(code);
+    const product = products.find((p) => p.code === code);
+    if (product && !itemName.trim()) {
+      setItemName(`${product.company} ${product.code} battery`.trim());
+    }
+  }
+
   const title =
     mode.type === "edit"
-      ? "Record Edit Karain"
+      ? "Visit Edit Karain"
       : mode.type === "repeat"
         ? "Dobara Battery Li"
         : "Naya Repair Customer";
 
   const subtitle =
     mode.type === "repeat"
-      ? `${mode.customerName} ne dobara battery li — nayi detail bharain.`
-      : "Customer ka naam, original battery aur price detail bharain.";
+      ? `${customer!.customerName} ke record mein nayi visit add hogi — alag record nahi banega.`
+      : "POP se product select karain, stock automatic minus hoga.";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError("");
 
-    const actual = Number(actualPrice);
+    const q = Math.max(1, Number(qty) || 1);
     const sold = Number(soldPrice);
+
     if (!customerName.trim()) {
       setError("Customer ka naam likhain.");
       setSaving(false);
       return;
     }
     if (!itemName.trim()) {
-      setError("Original battery ka naam likhain.");
+      setError("Battery ka naam likhain.");
       setSaving(false);
       return;
     }
-    if (!Number.isFinite(actual) || actual < 0) {
-      setError("Asli keemat sahi likhain.");
+    if (!productCode.trim()) {
+      setError("POP se product select karain.");
       setSaving(false);
       return;
     }
@@ -358,21 +419,27 @@ function RepairForm({ mode, onClose }: { mode: FormMode; onClose: () => void }) 
       setSaving(false);
       return;
     }
+    if (selectedProduct && selectedProduct.stock < q && !isEdit) {
+      setError(`Stock kam hai — sirf ${selectedProduct.stock} available.`);
+      setSaving(false);
+      return;
+    }
 
     try {
       const payload = {
         customerName: customerName.trim(),
         itemName: itemName.trim(),
-        actualPrice: actual,
+        productCode: productCode.trim(),
+        qty: q,
         soldPrice: sold,
         date: new Date(`${date}T12:00:00`).toISOString(),
         note: note.trim(),
       };
 
       if (isEdit) {
-        await updateRepairCustomer(record!.id, payload);
+        await updateRepairVisit(customer!.id, visit!.id, payload);
       } else {
-        await addRepairCustomer(payload);
+        await addRepairVisit(payload);
       }
       onClose();
     } catch (caught) {
@@ -389,7 +456,7 @@ function RepairForm({ mode, onClose }: { mode: FormMode; onClose: () => void }) 
     >
       <form
         onSubmit={submit}
-        className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl overflow-hidden"
+        className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between p-5 border-b border-border">
@@ -401,7 +468,6 @@ function RepairForm({ mode, onClose }: { mode: FormMode; onClose: () => void }) 
             type="button"
             onClick={onClose}
             className="h-8 w-8 rounded-md hover:bg-accent inline-flex items-center justify-center text-muted-foreground"
-            aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
@@ -414,14 +480,31 @@ function RepairForm({ mode, onClose }: { mode: FormMode; onClose: () => void }) 
               required
               value={customerName}
               onChange={(event) => setCustomerName(event.target.value)}
-              readOnly={mode.type === "repeat"}
-              className={`h-10 rounded-md border border-input bg-background px-3 ${mode.type === "repeat" ? "bg-muted/50" : ""}`}
+              readOnly={isRepeat}
+              className={`h-10 rounded-md border border-input bg-background px-3 ${isRepeat ? "bg-muted/50" : ""}`}
               placeholder="Customer ka naam"
             />
           </label>
 
           <label className="grid gap-1 text-sm sm:col-span-2">
-            <span className="text-xs text-muted-foreground">Original battery (pehle kya thi)</span>
+            <span className="text-xs text-muted-foreground">POP Product (stock yahan se minus)</span>
+            <select
+              required
+              value={productCode}
+              onChange={(event) => onProductChange(event.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3"
+            >
+              <option value="">Product select karain…</option>
+              {products.map((product) => (
+                <option key={product.code} value={product.code}>
+                  {product.code} · {product.company} · Stock {product.stock} · Rs {product.purchasePrice}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="grid gap-1 text-sm sm:col-span-2">
+            <span className="text-xs text-muted-foreground">Original battery (pehle kya thi / detail)</span>
             <input
               required
               value={itemName}
@@ -432,15 +515,14 @@ function RepairForm({ mode, onClose }: { mode: FormMode; onClose: () => void }) 
           </label>
 
           <label className="grid gap-1 text-sm">
-            <span className="text-xs text-muted-foreground">Asli keemat (Rs)</span>
+            <span className="text-xs text-muted-foreground">Qty</span>
             <input
               required
-              min="0"
+              min="1"
               type="number"
-              value={actualPrice}
-              onChange={(event) => setActualPrice(event.target.value)}
+              value={qty}
+              onChange={(event) => setQty(event.target.value)}
               className="h-10 rounded-md border border-input bg-background px-3"
-              placeholder="0"
             />
           </label>
 
@@ -474,26 +556,28 @@ function RepairForm({ mode, onClose }: { mode: FormMode; onClose: () => void }) 
               value={note}
               onChange={(event) => setNote(event.target.value)}
               className="min-h-20 rounded-md border border-input bg-background px-3 py-2"
-              placeholder="Extra detail, condition, etc."
+              placeholder="Extra detail"
             />
           </label>
+
+          {selectedProduct && (
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              Available stock: {selectedProduct.stock} · Purchase: Rs {selectedProduct.purchasePrice}
+            </p>
+          )}
 
           {error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}
         </div>
 
         <div className="flex justify-end gap-2 p-5 border-t border-border">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-10 px-4 rounded-md border border-input text-sm"
-          >
+          <button type="button" onClick={onClose} className="h-10 px-4 rounded-md border border-input text-sm">
             Cancel
           </button>
           <button
             disabled={saving}
             className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
           >
-            {saving ? "Saving…" : isEdit ? "Update Record" : "Save Record"}
+            {saving ? "Saving…" : isEdit ? "Update Visit" : isRepeat ? "Visit Add Karain" : "Save Record"}
           </button>
         </div>
       </form>

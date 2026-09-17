@@ -6,11 +6,18 @@ export const repairCustomerController = {
   },
 
   async create(req, res) {
-    res.status(201).json(await repairCustomerService.create(req.body));
+    res.status(201).json(await repairCustomerService.addVisit(req.body));
   },
 
-  async update(req, res) {
-    res.json(await repairCustomerService.update(req.params.id, req.body));
+  async updateVisit(req, res) {
+    res.json(
+      await repairCustomerService.updateVisit(req.params.id, req.params.visitId, req.body),
+    );
+  },
+
+  async removeVisit(req, res) {
+    await repairCustomerService.removeVisit(req.params.id, req.params.visitId);
+    res.status(204).send();
   },
 
   async remove(req, res) {

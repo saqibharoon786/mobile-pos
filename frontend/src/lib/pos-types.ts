@@ -104,12 +104,20 @@ export type LedgerEntry =
       note?: string;
     };
 
+export type RepairVisit = {
+  id: string;
+  date: string;
+  itemName: string;
+  productCode: string;
+  qty: number;
+  soldPrice: number;
+  purchasePrice: number;
+  note: string;
+};
+
 export type RepairCustomer = {
   id: string;
   date: string;
   customerName: string;
-  itemName: string;
-  actualPrice: number;
-  soldPrice: number;
-  note: string;
+  visits: RepairVisit[];
 };

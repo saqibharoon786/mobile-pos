@@ -144,16 +144,41 @@ export const api = {
     request<void>(`/ledger/entries/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   getRepairCustomers: () => request<RepairCustomer[]>("/repair-customers"),
-  addRepairCustomer: (body: Omit<RepairCustomer, "id">) =>
+  addRepairVisit: (body: {
+    customerName: string;
+    itemName: string;
+    productCode: string;
+    qty: number;
+    soldPrice: number;
+    date?: string;
+    note?: string;
+  }) =>
     request<RepairCustomer>("/repair-customers", {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  updateRepairCustomer: (id: string, body: Partial<Omit<RepairCustomer, "id">>) =>
-    request<RepairCustomer>(`/repair-customers/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body: JSON.stringify(body),
-    }),
+  updateRepairVisit: (
+    customerId: string,
+    visitId: string,
+    body: Partial<{
+      customerName: string;
+      itemName: string;
+      productCode: string;
+      qty: number;
+      soldPrice: number;
+      date: string;
+      note: string;
+    }>,
+  ) =>
+    request<RepairCustomer>(
+      `/repair-customers/${encodeURIComponent(customerId)}/visits/${encodeURIComponent(visitId)}`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
+  deleteRepairVisit: (customerId: string, visitId: string) =>
+    request<void>(
+      `/repair-customers/${encodeURIComponent(customerId)}/visits/${encodeURIComponent(visitId)}`,
+      { method: "DELETE" },
+    ),
   deleteRepairCustomer: (id: string) =>
     request<void>(`/repair-customers/${encodeURIComponent(id)}`, { method: "DELETE" }),
 

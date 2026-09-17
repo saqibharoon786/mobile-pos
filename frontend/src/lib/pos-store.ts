@@ -16,6 +16,7 @@ export type {
   LedgerSaleItem,
   LedgerEntry,
   RepairCustomer,
+  RepairVisit,
 } from "./pos-types";
 
 import type {
@@ -74,25 +75,49 @@ export function useRepairCustomers() {
   return useListQuery(queryKeys.repairCustomers, api.getRepairCustomers);
 }
 
-export async function addRepairCustomer(input: Omit<RepairCustomer, "id">) {
-  const result = await api.addRepairCustomer(input);
-  await invalidate(queryKeys.repairCustomers);
+export async function addRepairVisit(input: {
+  customerName: string;
+  itemName: string;
+  productCode: string;
+  qty: number;
+  soldPrice: number;
+  date?: string;
+  note?: string;
+}) {
+  const result = await api.addRepairVisit(input);
+  await invalidate(queryKeys.repairCustomers, queryKeys.products);
   return result;
 }
 
-export async function updateRepairCustomer(
-  id: string,
-  input: Partial<Omit<RepairCustomer, "id">>,
+export async function updateRepairVisit(
+  customerId: string,
+  visitId: string,
+  input: Partial<{
+    customerName: string;
+    itemName: string;
+    productCode: string;
+    qty: number;
+    soldPrice: number;
+    date: string;
+    note: string;
+  }>,
 ) {
-  const result = await api.updateRepairCustomer(id, input);
-  await invalidate(queryKeys.repairCustomers);
+  const result = await api.updateRepairVisit(customerId, visitId, input);
+  await invalidate(queryKeys.repairCustomers, queryKeys.products);
   return result;
+}
+
+export async function deleteRepairVisit(customerId: string, visitId: string) {
+  await api.deleteRepairVisit(customerId, visitId);
+  await invalidate(queryKeys.repairCustomers, queryKeys.products);
 }
 
 export async function deleteRepairCustomer(id: string) {
   await api.deleteRepairCustomer(id);
-  await invalidate(queryKeys.repairCustomers);
+  await invalidate(queryKeys.repairCustomers, queryKeys.products);
 }
+
+export type { RepairVisit };
 
 export async function addLedgerCustomer(input: string | { name: string; phone?: string }) {
   const body =

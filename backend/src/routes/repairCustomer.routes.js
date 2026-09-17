@@ -6,7 +6,8 @@ const router = Router();
 
 router.get("/", asyncHandler(repairCustomerController.list));
 router.post("/", asyncHandler(repairCustomerController.create));
-router.put("/:id", asyncHandler(repairCustomerController.update));
+router.put("/:id/visits/:visitId", asyncHandler(repairCustomerController.updateVisit));
+router.delete("/:id/visits/:visitId", asyncHandler(repairCustomerController.removeVisit));
 router.delete("/:id", asyncHandler(repairCustomerController.remove));
 
 export default router;

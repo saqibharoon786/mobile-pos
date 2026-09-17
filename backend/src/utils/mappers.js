@@ -121,15 +121,50 @@ export function toLedgerEntry(doc) {
   };
 }
 
+function toRepairVisit(visit) {
+  return {
+    id: visit.id,
+    date: visit.date,
+    itemName: visit.itemName,
+    productCode: visit.productCode || "",
+    qty: visit.qty ?? 1,
+    soldPrice: visit.soldPrice,
+    purchasePrice: visit.purchasePrice ?? 0,
+    note: visit.note || "",
+  };
+}
+
 export function toRepairCustomer(doc) {
   if (!doc) return null;
+
+  if (Array.isArray(doc.visits) && doc.visits.length > 0) {
+    const visits = doc.visits.map(toRepairVisit).sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+    return {
+      id: doc.id,
+      customerName: doc.customerName,
+      date: doc.date,
+      visits,
+    };
+  }
+
+  // legacy flat record
   return {
     id: doc.id,
-    date: doc.date,
     customerName: doc.customerName,
-    itemName: doc.itemName,
-    actualPrice: doc.actualPrice,
-    soldPrice: doc.soldPrice,
-    note: doc.note || "",
+    date: doc.date,
+    visits: [
+      toRepairVisit({
+        id: `${doc.id}-V1`,
+        date: doc.date,
+        itemName: doc.itemName || "",
+        productCode: doc.productCode || "",
+        qty: doc.qty ?? 1,
+        soldPrice: doc.soldPrice ?? 0,
+        purchasePrice: doc.actualPrice ?? doc.purchasePrice ?? 0,
+        note: doc.note || "",
+      }),
+    ],
   };
 }
